@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Interactive Ray Optics Simulator for Concave and Convex Mirrors">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Ray Optics Lab</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.95);
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.3);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --pink: #f472b6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 12px 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: var(--panel-bg);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.ui-hidden header {
+            transform: translateY(-100%);
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            gap: 12px;
+        }
+
+        h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        h1::before {
+            content: '◐';
+            font-size: 1.3rem;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        @media (min-width: 640px) {
+            .controls-row { width: auto; }
+            .header-row { width: auto; flex: 1; }
+        }
+
+        .btn-group {
+            display: flex;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 3px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn.active {
+            background: var(--accent);
+            color: #0f172a;
+            font-weight: 700;
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        .label-sm {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Viewport */
+        #viewport {
+            flex: 1;
+            width: 100%;
+            position: relative;
+            background: radial-gradient(ellipse at center, #1e293b 0%, #0f172a 70%);
+            overflow: hidden;
+            cursor: grab;
+            margin-top: 0;
+        }
+
+        #viewport:active {
+            cursor: grabbing;
+        }
+
+        #viewport.dragging-object {
+            cursor: ew-resize;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        /* Floating Tools */
+        .floating-tools {
+            position: fixed;
+            bottom: 140px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 90;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        body.ui-hidden .floating-tools {
+            opacity: 0;
+            transform: translateX(60px);
+            pointer-events: none;
+        }
+
+        .tool-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--panel-bg);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .tool-btn:hover {
+            background: rgba(56, 189, 248, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: scale(1.05);
+        }
+
+        .tool-btn:active {
+            transform: scale(0.95);
+        }
+
+        .tool-btn.toggle-ui {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            z-index: 200;
+        }
+
+        body.ui-hidden .tool-btn.toggle-ui {
+            opacity: 1;
+            transform: none;
+        }
+
+        /* Data Panel */
+        #dataPanel {
+            width: 100%;
+            background: var(--panel-bg);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding: 14px 16px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            z-index: 80;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.ui-hidden #dataPanel {
+            transform: translateY(100%);
+        }
+
+        @media (min-width: 640px) {
+            #dataPanel {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (min-width: 900px) {
+            #dataPanel {
+                grid-template-columns: repeat(5, 1fr);
+            }
+        }
+
+        .data-card {
+            background: rgba(255,255,255,0.03);
+            padding: 10px 12px;
+            border-radius: 10px;
+            border-left: 3px solid var(--accent);
+            transition: all 0.3s ease;
+        }
+
+        .data-card:hover {
+            background: rgba(255,255,255,0.06);
+        }
+
+        .data-card.object { border-left-color: var(--warning); }
+        .data-card.image { border-left-color: var(--accent); }
+        .data-card.nature { border-left-color: var(--success); }
+        .data-card.virtual { border-left-color: var(--pink); }
+        .data-card.size { border-left-color: #a78bfa; }
+
+        .data-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+        }
+
+        .data-value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sub-value {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-left: 4px;
+        }
+
+        /* Overlay Labels */
+        .overlay-tag {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: white;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.2);
+            white-space: nowrap;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .overlay-tag.visible {
+            opacity: 1;
+        }
+
+        .overlay-tag.object { color: var(--warning); border-color: var(--warning); }
+        .overlay-tag.image { color: var(--accent); border-color: var(--accent); }
+        .overlay-tag.virtual { color: var(--pink); border-color: var(--pink); }
+
+        /* Gesture Hint */
+        #gestureHint {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--accent);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            text-align: center;
+            z-index: 60;
+            line-height: 1.6;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        #gestureHint.hidden {
+            opacity: 0;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+
+        /* Focus states for accessibility */
+        .btn:focus-visible, .tool-btn:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* Loading state */
+        .loading canvas {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-row">
+        <h1>Ray Optics Lab</h1>
+        <div class="btn-group" role="tablist" aria-label="Mirror type selection">
+            <button class="btn active" id="btnConcave" role="tab" aria-selected="true" onclick="setMirrorType('concave')">Concave</button>
+            <button class="btn" id="btnConvex" role="tab" aria-selected="false" onclick="setMirrorType('convex')">Convex</button>
+        </div>
+    </div>
+    <div class="controls-row">
+        <span class="label-sm">Object Position:</span>
+        <div class="btn-group" role="tablist" aria-label="Object position mode">
+            <button class="btn active" id="btnFinite" role="tab" aria-selected="true" onclick="setPositionMode('finite')">Finite</button>
+            <button class="btn" id="btnInfinity" role="tab" aria-selected="false" onclick="setPositionMode('infinity')">At Infinity</button>
+        </div>
+    </div>
+</header>
+
+<div id="viewport">
+    <div id="gestureHint">
+        👆 Drag the candle to move object<br>
+        🖐️ Drag background to pan view<br>
+        🔍 Pinch or use buttons to zoom
+    </div>
+    <canvas id="canvas" aria-label="Ray optics simulation canvas"></canvas>
+</div>
+
+<div id="objLabel" class="overlay-tag object">Object</div>
+<div id="imgLabel" class="overlay-tag image">Image</div>
+
+<div class="floating-tools">
+    <button class="tool-btn" onclick="adjustZoom(0.15)" title="Zoom In" aria-label="Zoom in">+</button>
+    <button class="tool-btn" onclick="adjustZoom(-0.15)" title="Zoom Out" aria-label="Zoom out">−</button>
+    <button class="tool-btn" onclick="resetCamera()" title="Reset View" aria-label="Reset view">⌖</button>
+</div>
+
+<button class="tool-btn toggle-ui" onclick="toggleUI()" title="Toggle UI" aria-label="Toggle interface visibility">👁</button>
+
+<div id="dataPanel">
+    <div class="data-card object">
+        <div class="data-label">Object Distance (u)</div>
+        <div class="data-value" id="valObjDist">−200 cm</div>
+    </div>
+    <div class="data-card object">
+        <div class="data-label">Object Position</div>
+        <div class="data-value" id="valObjPos">Between C and F</div>
+    </div>
+    <div class="data-card image" id="cardImage">
+        <div class="data-label">Image Distance (v)</div>
+        <div class="data-value" id="valImgDist">−150 cm</div>
+    </div>
+    <div class="data-card nature" id="cardNature">
+        <div class="data-label">Nature of Image</div>
+        <div class="data-value" id="valNature">Real, Inverted</div>
+    </div>
+    <div class="data-card size">
+        <div class="data-label">Magnification</div>
+        <div class="data-value">
+            <span id="valSize">Enlarged</span>
+            <span id="valMag" class="sub-value">(m = −1.5)</span>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+
+    // ==================== CONFIGURATION ====================
+    const CONFIG = {
+        focalLength: 100,        // pixels
+        mirrorHeight: 140,       // pixels
+        objectHeight: 55,        // pixels
+        objectWidth: 12,         // candle width
+        minObjectX: -500,        // left limit
+        maxObjectX: -15,         // right limit (close to mirror)
+        defaultZoom: 1.0,
+        minZoom: 0.3,
+        maxZoom: 3.5,
+        animationSpeed: 0.15,
+        colors: {
+            background: '#0f172a',
+            grid: 'rgba(255,255,255,0.03)',
+            axis: 'rgba(255,255,255,0.25)',
+            axisArrow: 'rgba(255,255,255,0.4)',
+            mirror: '#cbd5e1',
+            mirrorEdge: '#94a3b8',
+            mirrorHatch: '#475569',
+            object: '#fbbf24',
+            objectGlow: 'rgba(251, 191, 36, 0.3)',
+            imageReal: '#38bdf8',
+            imageRealGlow: 'rgba(56, 189, 248, 0.3)',
+            imageVirtual: '#f472b6',
+            imageVirtualGlow: 'rgba(244, 114, 182, 0.3)',
+            rayIncident: '#fbbf24',
+            rayReflected: '#38bdf8',
+            rayExtension: 'rgba(148, 163, 184, 0.5)',
+            focus: '#f472b6',
+            center: '#38bdf8',
+            pole: '#ffffff',
+            flame: '#ff6b35'
+        }
+    };
+
+    // ==================== STATE ====================
+    const state = {
+        mode: 'concave',         // 'concave' or 'convex'
+        positionMode: 'finite',  // 'finite' or 'infinity'
+        objectX: -200,           // object position (negative = left of mirror)
+        cameraX: 0,              // pan offset
+        cameraY: 0,
+        zoom: CONFIG.defaultZoom,
+        width: 0,
+        height: 0,
+        dpr: 1,
+        headerHeight: 0,
+        panelHeight: 0
+    };
+
+    const interaction = {
+        isDraggingObject: false,
+        isPanning: false,
+        lastX: 0,
+        lastY: 0,
+        pinchDistance: 0,
+        touchCount: 0
+    };
+
+    // ==================== DOM REFERENCES ====================
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const viewport = document.getElementById('viewport');
+    const objLabel = document.getElementById('objLabel');
+    const imgLabel = document.getElementById('imgLabel');
+    const gestureHint = document.getElementById('gestureHint');
+
+    // ==================== INITIALIZATION ====================
+    function init() {
+        updateDimensions();
+        setupEventListeners();
+        resetCamera();
+        hideHintAfterDelay();
+        requestAnimationFrame(render);
+    }
+
+    function updateDimensions() {
+        const header = document.querySelector('header');
+        const panel = document.getElementById('dataPanel');
+        
+        state.headerHeight = header ? header.offsetHeight : 0;
+        state.panelHeight = panel ? panel.offsetHeight : 0;
+        
+        const rect = viewport.getBoundingClientRect();
+        state.width = rect.width;
+        state.height = rect.height;
+        state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = state.width * state.dpr;
+        canvas.height = state.height * state.dpr;
+        canvas.style.width = state.width + 'px';
+        canvas.style.height = state.height + 'px';
+    }
+
+    function hideHintAfterDelay() {
+        setTimeout(() => {
+            gestureHint.classList.add('hidden');
+        }, 5000);
+    }
+
+    // ==================== EVENT LISTENERS ====================
+    function setupEventListeners() {
+        // Window events
+        window.addEventListener('resize', debounce(() => {
+            updateDimensions();
+            render();
+        }, 100));
+
+        // Mouse events
+        canvas.addEventListener('mousedown', handleMouseDown);
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('wheel', handleWheel, { passive: false });
+
+        // Touch events
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd);
+        canvas.addEventListener('touchcancel', handleTouchEnd);
+
+        // Prevent context menu on long press
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+    }
+
+    function handleMouseDown(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        if (state.positionMode === 'finite' && isNearObject(x, y)) {
+            interaction.isDraggingObject = true;
+            viewport.classList.add('dragging-object');
+        } else {
+            interaction.isPanning = true;
+        }
+        interaction.lastX = e.clientX;
+        interaction.lastY = e.clientY;
+    }
+
+    function handleMouseMove(e) {
+        if (interaction.isDraggingObject) {
+            const dx = (e.clientX - interaction.lastX) / state.zoom;
+            state.objectX += dx;
+            state.objectX = clamp(state.objectX, CONFIG.minObjectX, CONFIG.maxObjectX);
+            interaction.lastX = e.clientX;
+            render();
+        } else if (interaction.isPanning) {
+            const dx = e.clientX - interaction.lastX;
+            state.cameraX += dx / state.zoom;
+            interaction.lastX = e.clientX;
+            render();
+        }
+    }
+
+    function handleMouseUp() {
+        interaction.isDraggingObject = false;
+        interaction.isPanning = false;
+        viewport.classList.remove('dragging-object');
+    }
+
+    function handleWheel(e) {
+        e.preventDefault();
+        const delta = -e.deltaY * 0.001;
+        adjustZoom(delta);
+    }
+
+    function handleTouchStart(e) {
+        e.preventDefault();
+        interaction.touchCount = e.touches.length;
+
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+
+            if (state.positionMode === 'finite' && isNearObject(x, y)) {
+                interaction.isDraggingObject = true;
+                viewport.classList.add('dragging-object');
+            } else {
+                interaction.isPanning = true;
+            }
+            interaction.lastX = touch.clientX;
+            interaction.lastY = touch.clientY;
+        } else if (e.touches.length === 2) {
+            interaction.isPanning = false;
+            interaction.isDraggingObject = false;
+            interaction.pinchDistance = getPinchDistance(e.touches);
+        }
+    }
+
+    function handleTouchMove(e) {
+        e.preventDefault();
+
+        if (e.touches.length === 1 && interaction.touchCount === 1) {
+            const touch = e.touches[0];
+            
+            if (interaction.isDraggingObject) {
+                const dx = (touch.clientX - interaction.lastX) / state.zoom;
+                state.objectX += dx;
+                state.objectX = clamp(state.objectX, CONFIG.minObjectX, CONFIG.maxObjectX);
+            } else if (interaction.isPanning) {
+                const dx = touch.clientX - interaction.lastX;
+                state.cameraX += dx / state.zoom;
+            }
+            
+            interaction.lastX = touch.clientX;
+            interaction.lastY = touch.clientY;
+            render();
+        } else if (e.touches.length === 2) {
+            const newDistance = getPinchDistance(e.touches);
+            const scale = newDistance / interaction.pinchDistance;
+            state.zoom *= scale;
+            state.zoom = clamp(state.zoom, CONFIG.minZoom, CONFIG.maxZoom);
+            interaction.pinchDistance = newDistance;
+            render();
+        }
+    }
+
+    function handleTouchEnd(e) {
+        if (e.touches.length === 0) {
+            interaction.isDraggingObject = false;
+            interaction.isPanning = false;
+            interaction.touchCount = 0;
+            viewport.classList.remove('dragging-object');
+        }
+    }
+
+    function getPinchDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // ==================== HIT DETECTION ====================
+    function isNearObject(screenX, screenY) {
+        const objScreenX = worldToScreenX(state.objectX);
+        const objScreenY = state.height / 2 - CONFIG.objectHeight * state.zoom;
+        
+        const hitRadius = 40;
+        const dx = screenX - objScreenX;
+        const dy = screenY - objScreenY;
+        
+        return Math.abs(dx) < hitRadius && dy > -hitRadius && dy < CONFIG.objectHeight * state.zoom + hitRadius;
+    }
+
+    // ==================== COORDINATE TRANSFORMS ====================
+    function worldToScreenX(wx) {
+        const centerX = state.width / 2;
+        return centerX + (wx + state.cameraX) * state.zoom;
+    }
+
+    function worldToScreenY(wy) {
+        const centerY = state.height / 2;
+        return centerY - wy * state.zoom;
+    }
+
+    function screenToWorldX(sx) {
+        const centerX = state.width / 2;
+        return (sx - centerX) / state.zoom - state.cameraX;
+    }
+
+    // ==================== PHYSICS CALCULATIONS ====================
+    function calculateOptics() {
+        const f = state.mode === 'concave' ? -CONFIG.focalLength : CONFIG.focalLength;
+        const R = 2 * f;  // Radius of curvature
+        
+        let u, v, m;
+        let isVirtual = false;
+        let atInfinity = false;
+        let imageAtInfinity = false;
+
+        if (state.positionMode === 'infinity') {
+            // Object at infinity - parallel rays focus at F
+            u = -Infinity;
+            v = f;  // Image at focus
+            m = 0;  // Point image
+            atInfinity = true;
+            isVirtual = state.mode === 'convex';
+        } else {
+            u = state.objectX;  // Always negative (left of mirror)
+            
+            // Check if object is at focus
+            if (Math.abs(u - f) < 2) {
+                imageAtInfinity = true;
+                v = state.mode === 'concave' ? -Infinity : Infinity;
+                m = Infinity;
+            } else {
+                // Mirror formula: 1/f = 1/v + 1/u
+                v = (u * f) / (u - f);
+                m = -v / u;
+            }
+            
+            // Determine if virtual
+            if (state.mode === 'concave') {
+                isVirtual = v > 0;  // Virtual if v is positive (behind mirror)
+            } else {
+                isVirtual = true;   // Convex always virtual
+            }
+        }
+
+        return {
+            u,
+            v,
+            f,
+            R,
+            m,
+            isVirtual,
+            atInfinity,
+            imageAtInfinity,
+            objectHeight: CONFIG.objectHeight,
+            imageHeight: m * CONFIG.objectHeight
+        };
+    }
+
+    function getObjectPositionLabel(u, f, R) {
+        const absU = Math.abs(u);
+        const absF = Math.abs(f);
+        const absR = Math.abs(R);
+        
+        if (state.positionMode === 'infinity') {
+            return 'At Infinity';
+        }
+        
+        if (state.mode === 'concave') {
+            if (absU > absR + 5) return 'Beyond C';
+            if (Math.abs(absU - absR) <= 5) return 'At C (2F)';
+            if (absU > absF + 5 && absU < absR - 5) return 'Between C and F';
+            if (Math.abs(absU - absF) <= 5) return 'At F';
+            if (absU < absF) return 'Between F and P';
+        } else {
+            // Convex - object always in front
+            if (absU > absR) return 'Beyond C';
+            if (absU > absF) return 'Between C and F';
+            return 'Between F and P';
+        }
+        
+        return 'Variable';
+    }
+
+    function getImagePositionLabel(v, f, R, isVirtual, imageAtInfinity) {
+        if (imageAtInfinity) return 'At Infinity';
+        if (state.positionMode === 'infinity') {
+            return 'At F (Focus)';
+        }
+        
+        const absV = Math.abs(v);
+        const absF = Math.abs(f);
+        const absR = Math.abs(R);
+        
+        if (isVirtual) {
+            return 'Behind Mirror';
+        }
+        
+        if (state.mode === 'concave') {
+            if (absV > absR + 5) return 'Beyond C';
+            if (Math.abs(absV - absR) <= 5) return 'At C (2F)';
+            if (absV > absF + 5) return 'Between C and F';
+            if (Math.abs(absV - absF) <= 5) return 'At F';
+        }
+        
+        return 'In Front';
+    }
+
+    // ==================== RENDERING ====================
+    function render() {
+        const { width, height, dpr, zoom } = state;
+        const physics = calculateOptics();
+
+        // Clear canvas
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+        ctx.fillStyle = CONFIG.colors.background;
+        ctx.fillRect(0, 0, width, height);
+
+        // Apply camera transform
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        ctx.scale(zoom, zoom);
+        ctx.translate(state.cameraX, 0);
+
+        // Draw scene
+        drawGrid();
+        drawOpticalAxis();
+        drawMirror();
+        drawFocalPoints(physics);
+        
+        if (state.positionMode === 'infinity') {
+            drawInfinityRays(physics);
+            drawPointImage(physics.v, physics);
+        } else if (physics.imageAtInfinity) {
+            drawObject(state.objectX, CONFIG.objectHeight);
+            drawInfinityReflectedRays(physics);
+        } else {
+            drawObject(state.objectX, CONFIG.objectHeight);
+            drawRayDiagram(physics);
+            if (Math.abs(physics.v) < 1000) {
+                drawImage(physics.v, physics.imageHeight, physics.isVirtual);
+            }
+        }
+
+        ctx.restore();
+
+        // Update UI
+        updateLabels(physics);
+        updateDataPanel(physics);
+    }
+
+    function drawGrid() {
+        const gridSize = 50;
+        const extent = 800;
+        
+        ctx.strokeStyle = CONFIG.colors.grid;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        
+        for (let x = -extent; x <= extent; x += gridSize) {
+            ctx.moveTo(x, -extent);
+            ctx.lineTo(x, extent);
+        }
+        for (let y = -extent; y <= extent; y += gridSize) {
+            ctx.moveTo(-extent, y);
+            ctx.lineTo(extent, y);
+        }
+        
+        ctx.stroke();
+    }
+
+    function drawOpticalAxis() {
+        ctx.strokeStyle = CONFIG.colors.axis;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-600, 0);
+        ctx.lineTo(400, 0);
+        ctx.stroke();
+
+        // Arrow at left end
+        ctx.fillStyle = CONFIG.colors.axisArrow;
+        ctx.beginPath();
+        ctx.moveTo(-600, 0);
+        ctx.lineTo(-590, -5);
+        ctx.lineTo(-590, 5);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function drawMirror() {
+        const h = CONFIG.mirrorHeight;
+        const curveDepth = 20;
+        
+        ctx.save();
+        
+        // Mirror surface
+        ctx.strokeStyle = CONFIG.colors.mirror;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        
+        if (state.mode === 'concave') {
+            ctx.moveTo(0, -h);
+            ctx.quadraticCurveTo(curveDepth, 0, 0, h);
+        } else {
+            ctx.moveTo(0, -h);
+            ctx.quadraticCurveTo(-curveDepth, 0, 0, h);
+        }
+        ctx.stroke();
+
+        // Hatching (back of mirror)
+        ctx.strokeStyle = CONFIG.colors.mirrorHatch;
+        ctx.lineWidth = 1;
+        
+        for (let y = -h + 6; y < h; y += 10) {
+            const t = (y + h) / (2 * h);
+            const xCurve = curveDepth * 4 * t * (1 - t);
+            const xOff = state.mode === 'concave' ? xCurve : -xCurve;
+            const dir = state.mode === 'concave' ? 1 : -1;
+            
+            ctx.beginPath();
+            ctx.moveTo(xOff, y);
+            ctx.lineTo(xOff + 8 * dir, y + 8);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+
+    function drawFocalPoints(physics) {
+        const f = Math.abs(CONFIG.focalLength);
+        const fPos = state.mode === 'concave' ? -f : f;
+        const cPos = state.mode === 'concave' ? -2 * f : 2 * f;
+
+        // Focus point
+        drawPoint(fPos, 0, CONFIG.colors.focus, 'F');
+        
+        // Center of curvature
+        drawPoint(cPos, 0, CONFIG.colors.center, 'C');
+        
+        // Pole
+        drawPoint(0, 0, CONFIG.colors.pole, 'P');
+    }
+
+    function drawPoint(x, y, color, label) {
+        // Dot
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Label
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, x, y + 12);
+    }
+
+    function drawObject(x, h) {
+        ctx.save();
+        
+        // Glow effect
+        ctx.shadowColor = CONFIG.colors.objectGlow;
+        ctx.shadowBlur = 15;
+        
+        // Candle body
+        ctx.fillStyle = CONFIG.colors.object;
+        ctx.fillRect(x - CONFIG.objectWidth / 2, -h, CONFIG.objectWidth, h);
+        
+        // Flame
+        ctx.beginPath();
+        ctx.moveTo(x, -h - 20);
+        ctx.bezierCurveTo(x - 8, -h - 10, x - 6, -h, x, -h);
+        ctx.bezierCurveTo(x + 6, -h, x + 8, -h - 10, x, -h - 20);
+        ctx.fillStyle = CONFIG.colors.flame;
+        ctx.fill();
+        
+        // Inner flame
+        ctx.beginPath();
+        ctx.moveTo(x, -h - 15);
+        ctx.bezierCurveTo(x - 4, -h - 8, x - 3, -h - 2, x, -h - 2);
+        ctx.bezierCurveTo(x + 3, -h - 2, x + 4, -h - 8, x, -h - 15);
+        ctx.fillStyle = '#ffd700';
+        ctx.fill();
+        
+        // Arrow pointing up
+        ctx.strokeStyle = CONFIG.colors.object;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, -h);
+        ctx.stroke();
+        
+        // Arrowhead
+        ctx.beginPath();
+        ctx.moveTo(x, -h - 8);
+        ctx.lineTo(x - 6, -h + 5);
+        ctx.lineTo(x + 6, -h + 5);
+        ctx.closePath();
+        ctx.fillStyle = CONFIG.colors.object;
+        ctx.fill();
+        
+        ctx.restore();
+    }
+
+    function drawImage(x, h, isVirtual) {
+        ctx.save();
+        
+        const color = isVirtual ? CONFIG.colors.imageVirtual : CONFIG.colors.imageReal;
+        const glow = isVirtual ? CONFIG.colors.imageVirtualGlow : CONFIG.colors.imageRealGlow;
+        
+        if (isVirtual) {
+            ctx.setLineDash([8, 5]);
+        }
+        
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 12;
+        
+        // Image arrow
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, -h);
+        ctx.stroke();
+        
+        // Arrowhead direction based on h sign
+        const arrowDir = h > 0 ? -1 : 1;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, -h - 8 * arrowDir);
+        ctx.lineTo(x - 6, -h + 5 * arrowDir);
+        ctx.lineTo(x + 6, -h + 5 * arrowDir);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+    }
+
+    function drawPointImage(x, physics) {
+        ctx.save();
+        
+        const color = physics.isVirtual ? CONFIG.colors.imageVirtual : CONFIG.colors.imageReal;
+        
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        
+        ctx.beginPath();
+        ctx.arc(x, 0, 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Label
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Image', x, 25);
+        
+        ctx.restore();
+    }
+
+    function drawRayDiagram(physics) {
+        const objX = state.objectX;
+        const objTop = -CONFIG.objectHeight;
+        const imgX = physics.v;
+        const imgTop = -physics.imageHeight;
+        const f = state.mode === 'concave' ? -CONFIG.focalLength : CONFIG.focalLength;
+        const c = 2 * f;
+
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+
+        // Ray 1: Parallel to axis, reflects through F
+        drawRay1(objX, objTop, f, physics);
+        
+        // Ray 2: Through center C, reflects back on itself
+        drawRay2(objX, objTop, c, physics);
+        
+        // Ray 3: Through F (or toward F), reflects parallel
+        if (Math.abs(objX - f) > 5) {
+            drawRay3(objX, objTop, f, physics);
+        }
+    }
+
+    function drawRay1(objX, objTop, f, physics) {
+        // Incident ray: object tip → mirror (parallel to axis)
+        ctx.strokeStyle = CONFIG.colors.rayIncident;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(objX, objTop);
+        ctx.lineTo(0, objTop);
+        ctx.stroke();
+
+        // Find where reflected ray goes
+        if (state.mode === 'concave') {
+            // Concave: reflects through F
+            ctx.strokeStyle = CONFIG.colors.rayReflected;
+            ctx.beginPath();
+            ctx.moveTo(0, objTop);
+            
+            if (physics.isVirtual) {
+                // Virtual: appears to come from behind mirror
+                const slope = (objTop - 0) / (0 - f);
+                const extendX = 300;
+                ctx.lineTo(extendX, objTop + slope * extendX);
+                ctx.stroke();
+                
+                // Extension behind mirror
+                ctx.strokeStyle = CONFIG.colors.rayExtension;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(0, objTop);
+                ctx.lineTo(f, 0);
+                ctx.stroke();
+            } else {
+                // Real: passes through F
+                const slope = (0 - objTop) / (f - 0);
+                const extendX = Math.min(physics.v, -400);
+                ctx.lineTo(extendX, objTop + slope * extendX);
+                ctx.stroke();
+            }
+        } else {
+            // Convex: reflects as if coming from F (behind mirror)
+            ctx.strokeStyle = CONFIG.colors.rayReflected;
+            const slope = (objTop - 0) / (0 - f);
+            ctx.beginPath();
+            ctx.moveTo(0, objTop);
+            ctx.lineTo(-400, objTop - slope * 400);
+            ctx.stroke();
+            
+            // Extension to virtual focus
+            ctx.strokeStyle = CONFIG.colors.rayExtension;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, objTop);
+            ctx.lineTo(f, 0);
+            ctx.stroke();
+        }
+    }
+
+    function drawRay2(objX, objTop, c, physics) {
+        ctx.setLineDash([]);
+        
+        // Through center - reflects back
+        const mirrorY = getMirrorY(objX, objTop, c);
+        
+        ctx.strokeStyle = CONFIG.colors.rayIncident;
+        ctx.beginPath();
+        ctx.moveTo(objX, objTop);
+        ctx.lineTo(0, mirrorY);
+        ctx.stroke();
+
+        // Reflected ray
+        ctx.strokeStyle = CONFIG.colors.rayReflected;
+        if (physics.isVirtual) {
+            ctx.beginPath();
+            ctx.moveTo(0, mirrorY);
+            ctx.lineTo(-400, mirrorY + (mirrorY - objTop) / (0 - objX) * 400);
+            ctx.stroke();
+            
+            // Extension behind
+            ctx.strokeStyle = CONFIG.colors.rayExtension;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, mirrorY);
+            ctx.lineTo(physics.v, -physics.imageHeight);
+            ctx.stroke();
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(0, mirrorY);
+            const slope = (mirrorY - objTop) / (0 - objX);
+            ctx.lineTo(-400, mirrorY - slope * 400);
+            ctx.stroke();
+        }
+    }
+
+    function drawRay3(objX, objTop, f, physics) {
+        ctx.setLineDash([]);
+        
+        if (state.mode === 'concave') {
+            // Ray toward F, reflects parallel
+            const slope = (0 - objTop) / (f - objX);
+            const mirrorY = objTop + slope * (0 - objX);
+            
+            if (Math.abs(mirrorY) < CONFIG.mirrorHeight) {
+                ctx.strokeStyle = CONFIG.colors.rayIncident;
+                ctx.beginPath();
+                ctx.moveTo(objX, objTop);
+                ctx.lineTo(0, mirrorY);
+                ctx.stroke();
+
+                ctx.strokeStyle = CONFIG.colors.rayReflected;
+                ctx.beginPath();
+                ctx.moveTo(0, mirrorY);
+                if (physics.isVirtual) {
+                    ctx.lineTo(300, mirrorY);
+                    ctx.stroke();
+                    
+                    ctx.strokeStyle = CONFIG.colors.rayExtension;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(0, mirrorY);
+                    ctx.lineTo(physics.v, -physics.imageHeight);
+                } else {
+                    ctx.lineTo(-400, mirrorY);
+                }
+                ctx.stroke();
+            }
+        } else {
+            // Convex: ray toward F (behind mirror)
+            const slope = (0 - objTop) / (f - objX);
+            const mirrorY = objTop + slope * (0 - objX);
+            
+            if (Math.abs(mirrorY) < CONFIG.mirrorHeight) {
+                ctx.strokeStyle = CONFIG.colors.rayIncident;
+                ctx.beginPath();
+                ctx.moveTo(objX, objTop);
+                ctx.lineTo(0, mirrorY);
+                ctx.stroke();
+
+                // Reflects parallel to axis
+                ctx.strokeStyle = CONFIG.colors.rayReflected;
+                ctx.beginPath();
+                ctx.moveTo(0, mirrorY);
+                ctx.lineTo(-400, mirrorY);
+                ctx.stroke();
+                
+                // Extension to virtual F
+                ctx.strokeStyle = CONFIG.colors.rayExtension;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(0, mirrorY);
+                ctx.lineTo(f, 0);
+                ctx.stroke();
+            }
+        }
+    }
+
+    function getMirrorY(objX, objTop, c) {
+        // Simplified: line from object tip to C, find intersection with mirror at x=0
+        const slope = (0 - objTop) / (c - objX);
+        return objTop + slope * (0 - objX);
+    }
+
+    function drawInfinityRays(physics) {
+        // Parallel rays from infinity
+        const raySpacing = 30;
+        const rayCount = 3;
+        
+        for (let i = -rayCount; i <= rayCount; i++) {
+            const y = i * raySpacing;
+            if (Math.abs(y) >= CONFIG.mirrorHeight) continue;
+            
+            // Incoming parallel ray
+            ctx.strokeStyle = CONFIG.colors.rayIncident;
+            ctx.setLineDash([]);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-500, y);
+            ctx.lineTo(0, y);
+            ctx.stroke();
+            
+            // Reflected ray toward focus
+            const f = physics.f;
+            ctx.strokeStyle = CONFIG.colors.rayReflected;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            
+            if (state.mode === 'concave') {
+                ctx.lineTo(f, 0);
+            } else {
+                // Convex: diverges, appears from virtual F
+                const slope = (y - 0) / (0 - f);
+                ctx.lineTo(-300, y - slope * 300);
+                ctx.stroke();
+                
+                // Virtual extension
+                ctx.strokeStyle = CONFIG.colors.rayExtension;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(f, 0);
+            }
+            ctx.stroke();
+        }
+    }
+
+    function drawInfinityReflectedRays(physics) {
+        // Object at focus - rays reflect parallel
+        const objX = state.objectX;
+        const objTop = -CONFIG.objectHeight;
+        const f = state.mode === 'concave' ? -CONFIG.focalLength : CONFIG.focalLength;
+        
+        // Several rays from object tip
+        const rayAngles = [-0.3, 0, 0.3];
+        
+        rayAngles.forEach(angle => {
+            const targetY = angle * CONFIG.mirrorHeight;
+            if (Math.abs(targetY) >= CONFIG.mirrorHeight) return;
+            
+            // Incident ray
+            ctx.strokeStyle = CONFIG.colors.rayIncident;
+            ctx.setLineDash([]);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(objX, objTop);
+            ctx.lineTo(0, targetY);
+            ctx.stroke();
+            
+            // Reflected parallel ray
+            ctx.strokeStyle = CONFIG.colors.rayReflected;
+            ctx.beginPath();
+            ctx.moveTo(0, targetY);
+            ctx.lineTo(-500, targetY);
+            ctx.stroke();
+        });
+        
+        // Label "To Infinity"
+        ctx.font = 'italic 12px sans-serif';
+        ctx.fillStyle = CONFIG.colors.rayReflected;
+        ctx.textAlign = 'left';
+        ctx.fillText('→ ∞', -450, -40);
+    }
+
+    // ==================== UI UPDATES ====================
+    function updateLabels(physics) {
+        // Object label
+        if (state.positionMode === 'finite') {
+            const objSx = worldToScreenX(state.objectX);
+            const objSy = worldToScreenY(CONFIG.objectHeight + 30);
+            objLabel.style.left = objSx + 'px';
+            objLabel.style.top = objSy + 'px';
+            objLabel.classList.add('visible');
+        } else {
+            objLabel.classList.remove('visible');
+        }
+        
+        // Image label
+        if (!physics.imageAtInfinity && Math.abs(physics.v) < 600) {
+            const imgSx = worldToScreenX(physics.v);
+            const imgH = Math.abs(physics.imageHeight);
+            const imgSy = worldToScreenY(Math.max(imgH, 20) + 30);
+            
+            imgLabel.style.left = imgSx + 'px';
+            imgLabel.style.top = imgSy + 'px';
+            imgLabel.textContent = physics.isVirtual ? 'Virtual Image' : 'Real Image';
+            imgLabel.classList.toggle('virtual', physics.isVirtual);
+            imgLabel.classList.remove('image');
+            if (!physics.isVirtual) imgLabel.classList.add('image');
+            imgLabel.classList.add('visible');
+        } else {
+            imgLabel.classList.remove('visible');
+        }
+    }
+
+    function updateDataPanel(physics) {
+        const { u, v, f, R, m, isVirtual, atInfinity, imageAtInfinity } = physics;
+        
+        // Object distance
+        const objDistEl = document.getElementById('valObjDist');
+        if (atInfinity) {
+            objDistEl.textContent = '∞';
+        } else {
+            objDistEl.textContent = `${u.toFixed(0)} px`;
+        }
+        
+        // Object position label
+        const objPosEl = document.getElementById('valObjPos');
+        objPosEl.textContent = getObjectPositionLabel(u, f, R);
+        
+        // Image distance
+        const imgDistEl = document.getElementById('valImgDist');
+        if (imageAtInfinity) {
+            imgDistEl.textContent = '∞';
+        } else {
+            imgDistEl.textContent = `${v.toFixed(0)} px`;
+        }
+        
+        // Image position description
+        const cardImage = document.getElementById('cardImage');
+        const imgPosLabel = getImagePositionLabel(v, f, R, isVirtual, imageAtInfinity);
+        // Update card styling based on virtual/real
+        cardImage.classList.toggle('virtual', isVirtual);
+        cardImage.classList.toggle('image', !isVirtual);
+        
+        // Nature
+        const natureEl = document.getElementById('valNature');
+        const cardNature = document.getElementById('cardNature');
+        
+        if (imageAtInfinity) {
+            natureEl.textContent = 'At Infinity';
+            cardNature.classList.remove('virtual');
+            cardNature.classList.add('nature');
+        } else if (isVirtual) {
+            natureEl.textContent = 'Virtual, Erect';
+            cardNature.classList.add('virtual');
+            cardNature.classList.remove('nature');
+        } else {
+            natureEl.textContent = 'Real, Inverted';
+            cardNature.classList.remove('virtual');
+            cardNature.classList.add('nature');
+        }
+        
+        // Magnification
+        const sizeEl = document.getElementById('valSize');
+        const magEl = document.getElementById('valMag');
+        
+        if (imageAtInfinity || atInfinity) {
+            sizeEl.textContent = atInfinity ? 'Point' : 'Infinite';
+            magEl.textContent = atInfinity ? '(m ≈ 0)' : '(m → ∞)';
+        } else {
+            const absM = Math.abs(m);
+            if (absM > 1.05) {
+                sizeEl.textContent = 'Magnified';
+            } else if (absM < 0.95) {
+                sizeEl.textContent = 'Diminished';
+            } else {
+                sizeEl.textContent = 'Same Size';
+            }
+            magEl.textContent = `(m = ${m.toFixed(2)})`;
+        }
+    }
+
+    // ==================== PUBLIC API ====================
+    window.setMirrorType = function(mode) {
+        state.mode = mode;
+        document.getElementById('btnConcave').classList.toggle('active', mode === 'concave');
+        document.getElementById('btnConvex').classList.toggle('active', mode === 'convex');
+        document.getElementById('btnConcave').setAttribute('aria-selected', mode === 'concave');
+        document.getElementById('btnConvex').setAttribute('aria-selected', mode === 'convex');
+        
+        // Reset object position for new mirror type
+        state.objectX = mode === 'concave' ? -200 : -150;
+        setPositionMode('finite');
+        render();
+    };
+
+    window.setPositionMode = function(mode) {
+        state.positionMode = mode;
+        document.getElementById('btnFinite').classList.toggle('active', mode === 'finite');
+        document.getElementById('btnInfinity').classList.toggle('active', mode === 'infinity');
+        document.getElementById('btnFinite').setAttribute('aria-selected', mode === 'finite');
+        document.getElementById('btnInfinity').setAttribute('aria-selected', mode === 'infinity');
+        
+        // Update hint
+        if (mode === 'infinity') {
+            gestureHint.innerHTML = '🌟 Object at Infinity<br>Parallel rays converge at Focus';
+        } else {
+            gestureHint.innerHTML = '👆 Drag candle to move<br>🖐️ Drag background to pan';
+        }
+        gestureHint.classList.remove('hidden');
+        hideHintAfterDelay();
+        
+        render();
+    };
+
+    window.adjustZoom = function(delta) {
+        state.zoom += delta;
+        state.zoom = clamp(state.zoom, CONFIG.minZoom, CONFIG.maxZoom);
+        render();
+    };
+
+    window.resetCamera = function() {
+        state.zoom = CONFIG.defaultZoom;
+        state.cameraX = 50;
+        state.objectX = state.mode === 'concave' ? -200 : -150;
+        render();
+    };
+
+    window.toggleUI = function() {
+        document.body.classList.toggle('ui-hidden');
+        setTimeout(() => {
+            updateDimensions();
+            render();
+        }, 350);
+    };
+
+    // ==================== UTILITIES ====================
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    // ==================== START ====================
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+})();
+</script>
+
+</body>
+</html>
